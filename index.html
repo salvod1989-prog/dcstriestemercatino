@@ -362,12 +362,18 @@ footer{background:var(--ink);color:var(--carta);margin-top:2.4rem;padding-bottom
         </div>
 
         <div class="section-title">3. Incontro per lo scambio</div>
-        <div class="field"><label for="s-sede">Sede / punto d'incontro a scuola <span class="req">*</span></label>
-          <input class="input" id="s-sede" type="text" placeholder="Es. Ingresso principale, durante l'intervallo" /></div>
+        <div class="form-grid">
+          <div class="field"><label for="s-sede">Sede <span class="req">*</span></label>
+            <select class="select" id="s-sede"><option value="">Scegli la sede…</option><option>Veronese</option><option>Diaz</option></select>
+          </div>
+          <div class="field"><label for="s-luogo">Luogo di scambio <span class="req">*</span></label>
+            <select class="select" id="s-luogo"><option value="">Scegli il luogo…</option><option>Atrio</option><option>Bar</option></select>
+          </div>
+        </div>
         <div class="field"><label>Date disponibili <span class="req">*</span></label>
-          <div class="chip-input-row"><input class="input" id="s-data-input" type="date" /><button type="button" class="btn btn-outline btn-sm" id="s-data-add">Aggiungi</button></div>
-          <div class="tag-list" id="s-date-list"></div>
-          <p class="field-hint">Aggiungi una o più date in cui puoi incontrarti.</p>
+          <input class="input" id="s-data-input" type="date" />
+          <div class="tag-list" id="s-date-list" style="margin-top:.6rem"></div>
+          <p class="field-hint">Ogni data scelta viene aggiunta automaticamente all'elenco qui sopra: puoi selezionarne più di una.</p>
         </div>
         <div class="field"><label>Orari disponibili (griglia 07:00–17:00, ogni 30 minuti) <span class="req">*</span></label>
           <div class="slot-grid" id="s-orari-grid"></div>
@@ -625,6 +631,7 @@ function $$(s,c){return Array.prototype.slice.call((c||document).querySelectorAl
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function fmtPrice(n){return '€ '+Number(n).toFixed(2).replace(/\.00$/,'').replace('.',',');}
 function fmtDate(d){try{return new Date(d+'T00:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});}catch(e){return d;}}
+function fmtLuogo(obj){return esc(obj.sede)+' · '+esc(obj.luogo);}
 function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
 function initials(u){return ((u.nome||' ')[0]+(u.cognome||' ')[0]).toUpperCase();}
 function colorFor(id){var h=0;for(var i=0;i<id.length;i++)h=id.charCodeAt(i)+((h<<5)-h);return PALETTE[Math.abs(h)%PALETTE.length];}
@@ -945,7 +952,8 @@ function renderDettaglio(id){
     '<dt>Materia</dt><dd>'+esc(lt.materia)+'</dd>'+
     '<dt>Classe</dt><dd>'+esc(lt.classe)+'</dd>'+
     '<dt>Venditore</dt><dd>'+esc(utenteNomeByUid(b.venditore))+'</dd>'+
-    '<dt>Luogo</dt><dd>'+esc(b.sede)+'</dd>'+
+    '<dt>Sede</dt><dd>'+esc(b.sede)+'</dd>'+
+    '<dt>Luogo di scambio</dt><dd>'+esc(b.luogo)+'</dd>'+
     '<dt>Date proposte</dt><dd>'+b.date.map(fmtDate).join(', ')+'</dd>'+
     '<dt>Orari proposti</dt><dd>'+b.orari.join(', ')+'</dd>'+
     '<dt>Pagamento</dt><dd>'+b.pagamenti.join(', ')+' — sempre di persona, mai gestito dalla piattaforma</dd>'+
@@ -954,7 +962,7 @@ function renderDettaglio(id){
 }
 function openPrenotaModal(b){
   var lt=libroTesto(b.libroTestoId);
-  var html='<p class="small muted" style="margin-bottom:1rem">'+esc(lt.titolo)+' — '+fmtPrice(b.prezzo)+' · '+esc(b.sede)+'</p>'+
+  var html='<p class="small muted" style="margin-bottom:1rem">'+esc(lt.titolo)+' — '+fmtPrice(b.prezzo)+' · '+fmtLuogo(b)+'</p>'+
     '<form id="prenota-form"><div class="field"><label>Data <span class="req">*</span></label><div class="tag-list" style="gap:.5rem">'+
     b.date.map(function(d){return '<label class="pay-opt" style="display:inline-flex"><input type="radio" name="pn-data" value="'+esc(d)+'"> '+fmtDate(d)+'</label>';}).join('')+
     '</div></div><div class="field"><label>Ora <span class="req">*</span></label><div class="tag-list" style="gap:.5rem">'+
@@ -969,7 +977,7 @@ function openPrenotaModal(b){
     if(!data||!ora){toast('Scegli data e ora tra quelle proposte.','warn');return;}
     var submitBtn=$('#prenota-form button[type=submit]');submitBtn.disabled=true;
     colPrenotazioni.add({
-      libroId:b.id,acquirente:currentUser.uid,venditore:b.venditore,sede:b.sede,data:data,ora:ora,
+      libroId:b.id,acquirente:currentUser.uid,venditore:b.venditore,sede:b.sede,luogo:b.luogo,data:data,ora:ora,
       stato:'prenotato',appuntamentoConfermato:false,confermaVenditore:false,confermaAcquirente:false,
       createdAt:FieldValue.serverTimestamp()
     }).then(function(){
@@ -996,7 +1004,7 @@ function renderVendi(){
   $('#s-libro-hint').textContent='';
   $('#s-orari-grid').innerHTML=ORARI_GRIGLIA.map(function(t){return '<button type="button" class="slot-chip" data-t="'+t+'" aria-pressed="false">'+t+'</button>';}).join('');
   $$('.slot-chip',$('#s-orari-grid')).forEach(function(c){c.addEventListener('click',function(){c.setAttribute('aria-pressed',c.getAttribute('aria-pressed')!=='true');});});
-  $('#s-classe').value='';$('#s-condizione').value='';$('#s-prezzo').value='';$('#s-sede').value='';
+  $('#s-classe').value='';$('#s-condizione').value='';$('#s-prezzo').value='';$('#s-sede').value='';$('#s-luogo').value='';$('#s-data-input').value='';
   $$('#s-pagamenti input').forEach(function(i){i.checked=false;});
   $('#s-regolamento').checked=false;
 }
@@ -1012,29 +1020,32 @@ function renderSellDates(){
   $('#s-date-list').innerHTML = sellDates.map(function(d,i){return '<span class="tag">'+fmtDate(d)+'<button type="button" data-i="'+i+'">×</button></span>';}).join('');
   $$('#s-date-list button').forEach(function(b){b.addEventListener('click',function(){sellDates.splice(+b.dataset.i,1);renderSellDates();});});
 }
-$('#s-data-add').addEventListener('click',function(){
-  var v=$('#s-data-input').value;if(!v){toast('Scegli una data.','warn');return;}
-  if(sellDates.indexOf(v)===-1)sellDates.push(v);
-  sellDates.sort();renderSellDates();$('#s-data-input').value='';
+$('#s-data-input').addEventListener('change',function(){
+  var v=this.value;
+  if(v){
+    if(sellDates.indexOf(v)===-1)sellDates.push(v);
+    sellDates.sort();renderSellDates();
+  }
+  this.value='';
 });
 $('#open-regolamento').addEventListener('click',function(){openModal('modal-regolamento');});
 $('#sell-form').addEventListener('submit',function(e){
   e.preventDefault();
   var classe=$('#s-classe').value, libroTestoId=$('#s-libro').value, condizione=$('#s-condizione').value;
-  var prezzo=parseFloat($('#s-prezzo').value), sede=$('#s-sede').value.trim();
+  var prezzo=parseFloat($('#s-prezzo').value), sede=$('#s-sede').value, luogo=$('#s-luogo').value;
   var orari=$$('.slot-chip[aria-pressed="true"]',$('#s-orari-grid')).map(function(c){return c.dataset.t;});
   var pagamenti=$$('#s-pagamenti input:checked').map(function(i){return i.value;});
   var okReg=$('#s-regolamento').checked;
   if(!classe||!libroTestoId){toast('Scegli classe e libro adottato.','warn');return;}
   if(!condizione||!prezzo||prezzo<=0){toast('Indica condizione e un prezzo valido.','warn');return;}
-  if(!sede){toast('Indica il punto d\'incontro.','warn');return;}
-  if(!sellDates.length){toast('Aggiungi almeno una data disponibile.','warn');return;}
+  if(!sede||!luogo){toast('Scegli sede e luogo di scambio.','warn');return;}
+  if(!sellDates.length){toast('Scegli almeno una data disponibile.','warn');return;}
   if(!orari.length){toast('Scegli almeno un orario disponibile.','warn');return;}
   if(!pagamenti.length){toast('Scegli almeno un metodo di pagamento accettato.','warn');return;}
   if(!okReg){toast('Devi accettare il regolamento per pubblicare.','warn');return;}
   var submitBtn=$('#sell-form button[type=submit]');submitBtn.disabled=true;
   colLibri.add({
-    libroTestoId:libroTestoId,venditore:currentUser.uid,condizione:condizione,prezzo:prezzo,sede:sede,
+    libroTestoId:libroTestoId,venditore:currentUser.uid,condizione:condizione,prezzo:prezzo,sede:sede,luogo:luogo,
     date:sellDates.slice(),orari:orari,pagamenti:pagamenti,stato:'disponibile',createdAt:FieldValue.serverTimestamp()
   }).then(function(){
     $('#sell-ok').classList.add('show');
@@ -1062,7 +1073,7 @@ function renderMieiAnnunci(){
       else{actions='<span class="small muted">In attesa della conferma dell\'acquirente…</span>';}
     }
     return '<div class="res-card"><div class="res-head"><div><strong>'+esc(lt.titolo)+'</strong><div class="small muted">'+esc(lt.materia)+' · '+esc(lt.classe)+'</div></div><span class="badge '+b.stato+'">'+esc(STATO_LIBRO_LABEL[b.stato])+'</span></div>'+
-      '<div class="res-meta"><span class="price">'+fmtPrice(b.prezzo)+'</span><span>'+esc(b.sede)+'</span></div>'+
+      '<div class="res-meta"><span class="price">'+fmtPrice(b.prezzo)+'</span><span>'+fmtLuogo(b)+'</span></div>'+
       (pren?'<div class="res-meta"><span>Prenotato da '+esc(utenteNomeByUid(pren.acquirente))+'</span><span>'+fmtDate(pren.data)+' · '+pren.ora+'</span></div>'+confirmTrackHTML(pren):'')+
       '<div class="row-actions" style="margin-top:.6rem">'+actions+' <button class="icon-btn" data-act="ricevuta" data-id="'+b.id+'">Ricevuta</button></div></div>';
   }).join('');
@@ -1109,7 +1120,8 @@ function openRicevuta(b){
     'Condizione: '+b.condizione+'\n'+
     'Prezzo concordato: '+fmtPrice(b.prezzo)+'\n'+
     'Venditore: '+venditore.nome+' '+venditore.cognome+' ('+venditore.email+')\n'+
-    'Luogo di scambio: '+b.sede+'\n'+
+    'Sede: '+b.sede+'\n'+
+    'Luogo di scambio: '+b.luogo+'\n'+
     '----------------------------------------\n'+
     'Il pagamento avviene direttamente tra le parti, di persona.\n'+
     'Documento generato dal mercatino — ISIS D. Vinci · R. Carli · D. Sandrinelli.';
@@ -1149,7 +1161,7 @@ function renderPrenotazioni(){
       if(hoursLeft<24 && hoursLeft>0){actions+=' <span class="small" style="color:var(--viola)">meno di 24h dall\'incontro</span>';}
     }
     return '<div class="res-card"><div class="res-head"><div><strong>'+esc(lt.titolo)+'</strong><div class="small muted">venduto da '+esc(utenteNomeByUid(p.venditore))+'</div></div><span class="badge '+p.stato+'">'+esc(STATO_PREN_LABEL[p.stato])+'</span></div>'+
-      '<div class="res-meta"><span class="price">'+fmtPrice(b.prezzo)+'</span><span>'+esc(p.sede)+'</span><span>'+fmtDate(p.data)+' · '+p.ora+'</span></div>'+
+      '<div class="res-meta"><span class="price">'+fmtPrice(b.prezzo)+'</span><span>'+fmtLuogo(p)+'</span><span>'+fmtDate(p.data)+' · '+p.ora+'</span></div>'+
       confirmTrackHTML(p)+
       '<div class="row-actions" style="margin-top:.6rem">'+actions+'</div></div>';
   }).join('');
